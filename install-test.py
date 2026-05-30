@@ -1,7 +1,6 @@
 import langchain
-
-print(langchain.__version__)
-
 from dotenv import load_dotenv
 
 load_dotenv() 
+
+print(langchain.__version__)
