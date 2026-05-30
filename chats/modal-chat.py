@@ -27,7 +27,9 @@ api_key_value: The API key value to use.
 model = ChatGroq(
     model="llama-3.1-8b-instant",
     groq_api_key=api_key,
+    temperature=0.5,    # 0.0 to 1.0, default is 0.7
+    max_tokens=100,    # 1 to 8192, default is 1000
 )
 
-response = model.invoke("Hello, how are you?")
+response = model.invoke("write a poem about a cat")
 print(response.content)
