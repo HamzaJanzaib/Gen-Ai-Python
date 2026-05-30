@@ -21,6 +21,8 @@ cd "D:\projects\Gen Ai Python"
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+pip install python-dotenv
+REM Create .env in the project root and add your API keys (see Environment Variables section)
 ```
 
 ## Quick Start (macOS / Linux)
@@ -30,6 +32,8 @@ cd /path/to/Gen-Ai-Python
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install python-dotenv
+# Create .env in the project root and add your API keys (see Environment Variables section)
 ```
 
 ---
@@ -178,6 +182,173 @@ uv pip freeze > requirements.txt
 
 > **Note:** `uv add <package>` only works in uv-managed projects that have a `pyproject.toml`. This repo uses `requirements.txt` instead.
 
+### Load environment variables in Python
+
+Install `python-dotenv` to read `.env` from your scripts:
+
+```bash
+pip install python-dotenv
+# or
+uv pip install python-dotenv
+```
+
+At the top of your Python files:
+
+```python
+from dotenv import load_dotenv
+
+load_dotenv()  # loads variables from .env into os.environ
+```
+
+---
+
+## Environment Variables
+
+This project uses a `.env` file in the project root for API keys and local configuration. The file is listed in `.gitignore` and must **never** be committed to git.
+
+### Create your `.env` file
+
+1. Create a file named `.env` in the project root (same folder as `requirements.txt`).
+2. Add your keys using `KEY=value` format — one variable per line.
+3. Do not wrap values in quotes unless the value itself contains spaces.
+
+**Example `.env` (use your own keys, not these placeholders):**
+
+```env
+OPENAI_API_KEY=sk-proj-your-openai-key-here
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
+GOOGLE_API_KEY=your-google-api-key-here
+GROQ_API_KEY=gsk_your-groq-key-here
+```
+
+### Required variables
+
+| Variable | Provider | Used for | Where to get a key |
+|----------|----------|----------|-------------------|
+| `OPENAI_API_KEY` | OpenAI | GPT models via LangChain | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| `ANTHROPIC_API_KEY` | Anthropic | Claude models via LangChain | [console.anthropic.com](https://console.anthropic.com/) |
+| `GOOGLE_API_KEY` | Google | Gemini models via LangChain | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GROQ_API_KEY` | Groq | Fast inference (Llama, Mixtral, etc.) | [console.groq.com/keys](https://console.groq.com/keys) |
+
+You only need the keys for the providers you actually use. Leave unused entries out of `.env`, or comment them out:
+
+```env
+OPENAI_API_KEY=sk-proj-...
+# ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### How LangChain reads keys
+
+Most LangChain integrations read the matching environment variable automatically — no need to pass the key in code if `.env` is loaded:
+
+```python
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+
+load_dotenv()
+
+model = ChatOpenAI(model="gpt-4o-mini")  # uses OPENAI_API_KEY from .env
+```
+
+Install provider packages as needed:
+
+```bash
+uv pip install langchain-openai langchain-anthropic langchain-google-genai langchain-groq
+```
+
+### Verify variables are loaded
+
+**Python check:**
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY"):
+    value = os.getenv(key)
+    print(f"{key}: {'set' if value else 'missing'}")
+```
+
+**Quick one-liner (after activating `.venv`):**
+
+```bash
+python -c "from dotenv import load_dotenv; import os; load_dotenv(); print('OPENAI_API_KEY:', 'set' if os.getenv('OPENAI_API_KEY') else 'missing')"
+```
+
+### Set variables without a `.env` file (optional)
+
+You can set variables in the shell instead of using `.env`. Useful for CI or temporary testing.
+
+**Windows (CMD — current session only):**
+
+```cmd
+set OPENAI_API_KEY=sk-proj-your-key-here
+```
+
+**Windows (PowerShell — current session only):**
+
+```powershell
+$env:OPENAI_API_KEY = "sk-proj-your-key-here"
+```
+
+**macOS / Linux (current session only):**
+
+```bash
+export OPENAI_API_KEY=sk-proj-your-key-here
+```
+
+For permanent system-wide variables on Windows: **Settings → System → About → Advanced system settings → Environment Variables**.
+
+### uv-related environment variables
+
+These are optional tuning flags for uv, not required for normal use:
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `UV_LINK_MODE` | How uv links/copies packages into `.venv` | `copy` (suppresses hardlink warnings on Windows) |
+| `UV_CACHE_DIR` | Custom cache directory for downloaded packages | `C:\Users\You\.uv-cache` |
+| `UV_PYTHON` | Pin the Python interpreter uv uses | `3.12` |
+
+**Windows (suppress hardlink warning):**
+
+```cmd
+set UV_LINK_MODE=copy
+```
+
+**macOS / Linux:**
+
+```bash
+export UV_LINK_MODE=copy
+```
+
+### Security rules
+
+- **Never commit `.env`** — it is already in `.gitignore`.
+- **Never paste real API keys** into chat, issues, or pull requests.
+- **Rotate keys immediately** if one is accidentally exposed.
+- Prefer `.env` for local dev; use your OS or CI secret store (GitHub Secrets, etc.) in production.
+- Do not share `.env` files between teammates — each person creates their own from the template above.
+
+### Common env variable issues
+
+**`KeyError` or authentication errors from LangChain**
+
+- Confirm `.env` is in the project root (same directory you run scripts from).
+- Call `load_dotenv()` before importing or instantiating models.
+- Check the variable name matches exactly (e.g. `OPENAI_API_KEY`, not `OPENAI_KEY`).
+
+**Variables work in terminal but not in Python**
+
+- Shell `set` / `export` and `.env` are separate. If using `.env`, you must call `load_dotenv()`.
+- Restart the terminal or IDE after editing `.env`.
+
+**Quotes in `.env` values**
+
+- Prefer unquoted values: `GOOGLE_API_KEY=AIza...`
+- If you use quotes, they become part of the value unless your loader strips them. Stick to no quotes when possible.
+
 ---
 
 ## Installed Packages (example)
@@ -264,8 +435,11 @@ deactivate
 2. Install uv (optional but recommended)
 3. Create and activate `.venv`
 4. Install from `requirements.txt`
-5. Add packages with `uv pip install <package>` or `pip install <package>`
-6. Update `requirements.txt` with `uv pip freeze > requirements.txt`
+5. Create `.env` and add your API keys (see [Environment Variables](#environment-variables))
+6. Install `python-dotenv` and any LangChain provider packages you need
+7. Verify keys load correctly before running scripts
+8. Add packages with `uv pip install <package>` or `pip install <package>`
+9. Update `requirements.txt` with `uv pip freeze > requirements.txt`
 
 ---
 
@@ -273,8 +447,11 @@ deactivate
 
 ```
 Gen Ai Python/
+├── .env                # Local API keys (create yourself, never commit)
+├── .gitignore          # Ignores .env, .venv, __pycache__
 ├── .venv/              # Virtual environment (created locally, not committed)
 ├── docs/
 │   └── setup.md        # This file
+├── install-test.py     # Quick check that langchain is installed
 └── requirements.txt    # Python dependencies
 ```
